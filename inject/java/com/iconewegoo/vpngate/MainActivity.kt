@@ -24,7 +24,7 @@ import de.blinkt.openvpn.core.OpenVPNService
 import de.blinkt.openvpn.core.ProfileManager
 import de.blinkt.openvpn.core.VpnStatus
 import de.blinkt.openvpn.VpnProfile
-import de.blinkt.openvpn.core.VPNLaunchHelper
+import de.blinkt.openvpn.LaunchVPN
 import de.blinkt.openvpn.R
 import java.io.StringReader
 
@@ -109,8 +109,17 @@ class MainActivity : AppCompatActivity(), VpnStatus.StateListener {
             val vp: VpnProfile = cp.convertProfile()
             vp.mName = "VPNGate ${s.ip}"
             vp.mUsername = "vpn"; vp.mPassword = "vpn"      // default VPN Gate credentials
-            ProfileManager.setTemporaryProfile(this, vp)
-            VPNLaunchHelper.startOpenVPN(vp, applicationContext)
+            val pm = ProfileManager.getInstance(this)
+            try { pm.getProfileByName("VPNGate TV")?.let { pm.removeProfile(this, it) } } catch (_: Exception) { }
+            vp.mName = "VPNGate TV"
+            pm.addProfile(vp)
+            ProfileManager.saveProfile(this, vp)
+            pm.saveProfileList(this)
+            val i = Intent(this, LaunchVPN::class.java)
+            i.putExtra(LaunchVPN.EXTRA_KEY, vp.uuidString)
+            i.putExtra(LaunchVPN.EXTRA_HIDELOG, true)
+            i.action = Intent.ACTION_MAIN
+            startActivity(i)
             status.text = "Connecting to ${s.ip} (${s.proto.uppercase()}:${s.port})"
         } catch (e: Exception) { status.text = "Error: ${e.message}" }
     }
