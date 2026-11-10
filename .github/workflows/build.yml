@@ -1,0 +1,85 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  ICS_TAG: v0.7.53   # ics-openvpn release tag
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Accept Android SDK licenses (SDK is preinstalled on the runner)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Install swig
+        run: sudo apt-get update && sudo apt-get install -y swig
+
+      - name: Fetch ics-openvpn (the engine AND the app we extend)
+        run: |
+          git clone --branch "$ICS_TAG" https://github.com/schwabe/ics-openvpn.git ics-openvpn
+          cd ics-openvpn && git submodule update --init --recursive
+
+      - name: Inject VPN Gate TV screen into ics-openvpn app
+        run: |
+          M=ics-openvpn/main
+          mkdir -p $M/src/main/java $M/src/main/res
+          cp -r inject/java/. $M/src/main/java/
+          cp -r inject/res/. $M/src/main/res/
+          python3 - <<'PY'
+          p = 'ics-openvpn/main/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          act = open('inject/activity.xml').read()
+          assert '</application>' in s
+          s = s.replace('</application>', act + '\n    </application>', 1)
+          open(p, 'w').write(s)
+          PY
+          f=$(ls $M/build.gradle.kts $M/build.gradle 2>/dev/null | head -1)
+          if [[ "$f" == *.kts ]]; then
+            printf '\ndependencies {\n    implementation("androidx.appcompat:appcompat:1.6.1")\n    implementation("androidx.recyclerview:recyclerview:1.3.2")\n}\n' >> "$f"
+          else
+            printf "\ndependencies {\n    implementation 'androidx.appcompat:appcompat:1.6.1'\n    implementation 'androidx.recyclerview:recyclerview:1.3.2'\n}\n" >> "$f"
+          fi
+          echo "--- flavor info ---"
+          grep -n -i "flavorDimensions\|productFlavors\|ovpn\|create(\"" "$f" | head -20 || true
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          cd ics-openvpn
+          chmod +x gradlew
+          ./gradlew assembleUiOvpn2Debug --no-daemon 2>&1 | tee ../build.log
+
+      - name: Show the real error (only if build failed)
+        if: failure()
+        run: |
+          echo "=================== ERROR SUMMARY ==================="
+          grep -n -A 14 "What went wrong" build.log | head -40 || true
+          echo "----------------- kotlin / aapt / manifest errors -----------------"
+          grep -n -i "^e: \|error:\|aapt\|Manifest merger\|not found" build.log | head -40 || true
+
+      - name: Upload full build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: List APKs
+        run: find ics-openvpn/main/build/outputs -name "*.apk" -print
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VpnGateTV-apk
+          path: ics-openvpn/main/build/outputs/apk/**/*.apk
