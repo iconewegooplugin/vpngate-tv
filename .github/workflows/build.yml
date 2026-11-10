@@ -64,7 +64,7 @@ jobs:
           set -o pipefail
           cd ics-openvpn
           chmod +x gradlew
-          ./gradlew assembleUiOvpn2Debug --no-daemon --stacktrace -Pandroid.injected.build.abi=armeabi-v7a 2>&1 | tee ../build.log
+          ./gradlew assembleUiOvpn2Debug --no-daemon --stacktrace -Pandroid.injected.build.abi=armeabi-v7a -Pandroid.injected.testOnly=false 2>&1 | tee ../build.log
 
       - name: Show the real error (only if build failed)
         if: failure()
