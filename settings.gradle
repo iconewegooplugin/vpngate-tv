@@ -1,8 +1,0 @@
-pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-dependencyResolutionManagement {
-    repositories { google(); mavenCentral() }
-    versionCatalogs { libs { from(files("ics-openvpn/gradle/libs.versions.toml")) } }
-}
-rootProject.name = "VpnGateTV"
-include ':app'
-include ':ics-openvpn:main'
