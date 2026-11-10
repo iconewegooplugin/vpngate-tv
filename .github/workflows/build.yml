@@ -90,6 +90,12 @@ jobs:
           sed -i '/^org.gradle.jvmargs/d;/^kotlin.daemon.jvmargs/d' gradle.properties
           printf 'org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8\nkotlin.daemon.jvmargs=-Xmx2g\n' >> gradle.properties
           free -g | head -2
+          echo "=== pass 1: builds the native code (creates main/build/ovpnassets) ==="
+          ./gradlew assembleUiOvpn2Debug --no-daemon -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g" > ../build_pass1.log 2>&1 || true
+          tail -5 ../build_pass1.log
+          echo "=== OpenVPN executables produced for assets ==="
+          ls -la main/build/ovpnassets || echo "NO ovpnassets DIR"
+          echo "=== pass 2: packages them into the APK ==="
           ./gradlew assembleUiOvpn2Debug --no-daemon --stacktrace -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g" 2>&1 | tee ../build.log
 
       - name: Show the real error (only if build failed)
