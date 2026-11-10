@@ -86,9 +86,18 @@ jobs:
         if: failure()
         run: |
           echo "=================== ERROR SUMMARY ==================="
-          grep -n -A 25 "What went wrong" build.log | head -80 || true
-          echo "----------------- other error lines -----------------"
-          grep -n "error:\|Could not\|Unresolved\|FAILED" build.log | head -30 || true
+          grep -n -A 12 "What went wrong" build.log | head -30 || true
+          echo "----------------- lines just before the failure -----------------"
+          grep -n -B 45 "FAILURE: Build failed" build.log | head -70 || true
+          echo "----------------- aapt / resource errors -----------------"
+          grep -n -i "aapt\|error:\|resource .* not found\|not found\|invalid" build.log | grep -v "at org.gradle" | head -40 || true
+
+      - name: Upload full build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
 
       - uses: actions/upload-artifact@v4
         with:
