@@ -77,10 +77,10 @@ jobs:
         with:
           gradle-version: ${{ steps.align.outputs.gradle }}
 
-      - name: Build debug APK (armeabi-v7a)
+      - name: Build debug APK
         run: |
           set -o pipefail
-          gradle :app:assembleDebug --no-daemon -Pandroid.injected.build.abi=armeabi-v7a 2>&1 | tee build.log
+          gradle :app:assembleDebug --no-daemon 2>&1 | tee build.log
 
       - name: Show the real error (only if build failed)
         if: failure()
