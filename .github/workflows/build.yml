@@ -83,7 +83,11 @@ jobs:
           set -o pipefail
           cd ics-openvpn
           chmod +x gradlew
-          ./gradlew assembleUiOvpn2Debug --no-daemon --stacktrace 2>&1 | tee ../build.log
+          touch gradle.properties
+          sed -i '/^org.gradle.jvmargs/d;/^kotlin.daemon.jvmargs/d' gradle.properties
+          printf 'org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8\nkotlin.daemon.jvmargs=-Xmx2g\n' >> gradle.properties
+          free -g | head -2
+          ./gradlew assembleUiOvpn2Debug --no-daemon --stacktrace -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g" 2>&1 | tee ../build.log
 
       - name: Show the real error (only if build failed)
         if: failure()
