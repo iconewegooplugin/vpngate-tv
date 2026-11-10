@@ -25,31 +25,44 @@ class Store(c: Context) {
     } catch (e: Exception) { emptyList() }
     fun save(k: String, l: List<Server>) = p.edit().putString(k, JSONArray(l.map { it.toJson() }).toString()).apply()
     var mirrors: String
-        get() = p.getString("mirrors", "http://") ?: "http://"
-        set(v) = p.edit().putString("mirrors", v).apply()
+        get() = p.getString("mirrors2", null) ?: Api.DEFAULT_MIRRORS.joinToString("\n")
+        set(v) = p.edit().putString("mirrors2", v).apply()
 }
 
 object Api {
     private val ipv4 = Regex("""^(\d{1,3}\.){3}\d{1,3}$""")
 
+    val DEFAULT_MIRRORS = listOf(
+        "https://cdn.jsdelivr.net/gh/GeorgeXie2333/vpngate-list-mirror@latest/data/vpngate.csv",
+        "https://fastly.jsdelivr.net/gh/GeorgeXie2333/vpngate-list-mirror@latest/data/vpngate.csv",
+        "https://gcore.jsdelivr.net/gh/GeorgeXie2333/vpngate-list-mirror@latest/data/vpngate.csv"
+    )
+
     fun mirrorList(raw: String) = raw.lines().map { it.trim() }
-        .filter { it.startsWith("http://") && it.length > 10 }
+        .filter { (it.startsWith("http://") || it.startsWith("https://")) && it.length > 10 }
 
     /** Tries each mirror in order; first one that returns a valid list wins. */
     fun fetchFirstWorking(mirrors: List<String>, onTry: (String) -> Unit): List<Server> {
+        val errors = ArrayList<String>()
         for (m in mirrors) {
             onTry(m)
             try {
                 val r = fetch(m)
                 if (r.isNotEmpty()) return r
-            } catch (_: Exception) { }
+                errors += "${shortName(m)}: empty list"
+            } catch (e: Exception) { errors += "${shortName(m)}: ${e.javaClass.simpleName}" }
         }
-        throw Exception("No mirror responded")
+        throw Exception(errors.joinToString(" | "))
     }
 
+    private fun shortName(m: String) = m.substringAfter("://").substringBefore("/")
+
     private fun fetch(mirror: String): List<Server> {
-        val c = URL(mirror.trimEnd('/') + "/api/iphone/").openConnection() as HttpURLConnection
-        c.connectTimeout = 6000; c.readTimeout = 20000
+        // full file URL (e.g. .../vpngate.csv) is used as is; plain http://IP:PORT gets /api/iphone/
+        val url = if (mirror.contains("/api/") || mirror.endsWith(".csv")) mirror else mirror.trimEnd('/') + "/api/iphone/"
+        val c = URL(url).openConnection() as HttpURLConnection
+        c.connectTimeout = 8000; c.readTimeout = 25000
+        c.setRequestProperty("User-Agent", "Mozilla/5.0")
         val text = c.inputStream.bufferedReader().readText()
         val out = ArrayList<Server>()
         for (line in text.lines()) {
