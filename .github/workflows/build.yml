@@ -85,9 +85,17 @@ jobs:
           path: build.log
 
       - name: List APKs
-        run: find ics-openvpn/main/build/outputs -name "*.apk" -print
+        if: always()
+        run: |
+          echo "--- build result ---"
+          grep -n "BUILD \|packageUi\|assembleUi" build.log | tail -8 || true
+          echo "--- apk files ---"
+          find ics-openvpn -type f \( -name "*.apk" -o -name "*.aab" \) -print
+          echo "--- outputs tree ---"
+          ls -R ics-openvpn/main/build/outputs 2>/dev/null | head -40 || true
 
       - uses: actions/upload-artifact@v4
         with:
           name: VpnGateTV-apk
-          path: ics-openvpn/main/build/outputs/apk/**/*.apk
+          path: ics-openvpn/**/*.apk
+          if-no-files-found: error
