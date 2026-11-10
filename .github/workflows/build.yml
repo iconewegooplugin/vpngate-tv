@@ -20,6 +20,11 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Free disk space (native builds are big)
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /opt/hostedtoolcache/CodeQL || true
+          df -h /
+
       - name: Accept Android SDK licenses (SDK is preinstalled on the runner)
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
@@ -59,13 +64,16 @@ jobs:
           set -o pipefail
           cd ics-openvpn
           chmod +x gradlew
-          ./gradlew assembleUiOvpn2Debug --no-daemon 2>&1 | tee ../build.log
+          ./gradlew assembleUiOvpn2Debug --no-daemon --stacktrace -Pandroid.injected.build.abi=armeabi-v7a 2>&1 | tee ../build.log
 
       - name: Show the real error (only if build failed)
         if: failure()
         run: |
           echo "=================== ERROR SUMMARY ==================="
           grep -n -A 14 "What went wrong" build.log | head -40 || true
+          echo "----------------- root causes -----------------"
+          grep -n "Caused by" build.log | head -15 || true
+          df -h / || true
           echo "----------------- kotlin / aapt / manifest errors -----------------"
           grep -n -i "^e: \|error:\|aapt\|Manifest merger\|not found" build.log | head -40 || true
 
