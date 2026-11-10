@@ -72,8 +72,11 @@ jobs:
           f=$(ls $M/build.gradle.kts $M/build.gradle 2>/dev/null | head -1)
           if [[ "$f" == *.kts ]]; then
             printf '\ndependencies {\n    implementation("androidx.appcompat:appcompat:1.6.1")\n    implementation("androidx.recyclerview:recyclerview:1.3.2")\n}\n' >> "$f"
+            # extract native libs at install: OpenVPN 2 executes libovpnexec.so from nativeLibraryDir
+            printf '\nandroid {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }\n}\n' >> "$f"
           else
             printf "\ndependencies {\n    implementation 'androidx.appcompat:appcompat:1.6.1'\n    implementation 'androidx.recyclerview:recyclerview:1.3.2'\n}\n" >> "$f"
+            printf "\nandroid {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }\n}\n" >> "$f"
           fi
           echo "--- flavor info ---"
           grep -n -i "flavorDimensions\|productFlavors\|ovpn\|create(\"" "$f" | head -20 || true
@@ -107,12 +110,20 @@ jobs:
           name: build-log
           path: build.log
 
+      - name: Find OpenVPN executables in build tree
+        if: always()
+        run: |
+          find ics-openvpn -type f \( -name "*pie_openvpn*" -o -name "libovpnexec*" -o -name "libopenvpn*" -o -name "minivpn*" \) -not -path "*/src/main/cpp/*" | head -40
+          echo "--- assets dirs ---"
+          find ics-openvpn/main/build -type d -name assets | head
+          find ics-openvpn/main/build -path "*assets*" -type f | head -40
+
       - name: Inspect APK contents
         if: always()
         run: |
           for a in $(find ics-openvpn -name "*.apk"); do
             echo "== $a"; ls -la "$a"
-            unzip -l "$a" | grep -i -E "openvpn|ovpn|\.so$" | head -40
+            unzip -l "$a" | grep -i -E "openvpn|ovpn|minivpn|assets/|\.so$" | head -60
           done
 
       - name: List APKs
