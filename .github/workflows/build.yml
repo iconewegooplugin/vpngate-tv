@@ -64,6 +64,10 @@ jobs:
           print(open('build.gradle').read())
           PY
           v=$(grep distributionUrl ics-openvpn/gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([0-9.]+)-.*/\1/' || true)
+          # second flavor dimension of ics-openvpn (ovpn2 = lighter engine build)
+          grep -q ovpnimpl app/build.gradle || sed -i "s/missingDimensionStrategy 'implementation', 'skeleton'/&\n        missingDimensionStrategy 'ovpnimpl', 'ovpn2'/" app/build.gradle
+          echo "--- ics flavor dimensions ---"
+          grep -n -i "flavorDimensions\|productFlavors\|ovpn" ics-openvpn/main/build.gradle* | head -20 || true
           echo "gradle=${v:-8.4}" >> "$GITHUB_OUTPUT"
           echo "Using Gradle ${v:-8.4}"
 
@@ -72,7 +76,17 @@ jobs:
           gradle-version: ${{ steps.align.outputs.gradle }}
 
       - name: Build debug APK (armeabi-v7a)
-        run: gradle :app:assembleDebug --no-daemon --stacktrace -Pandroid.injected.build.abi=armeabi-v7a
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --no-daemon -Pandroid.injected.build.abi=armeabi-v7a 2>&1 | tee build.log
+
+      - name: Show the real error (only if build failed)
+        if: failure()
+        run: |
+          echo "=================== ERROR SUMMARY ==================="
+          grep -n -A 25 "What went wrong" build.log | head -80 || true
+          echo "----------------- other error lines -----------------"
+          grep -n "error:\|Could not\|Unresolved\|FAILED" build.log | head -30 || true
 
       - uses: actions/upload-artifact@v4
         with:
