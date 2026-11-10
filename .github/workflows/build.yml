@@ -68,6 +68,8 @@ jobs:
           grep -q ovpnimpl app/build.gradle || sed -i "s/missingDimensionStrategy 'implementation', 'skeleton'/&\n        missingDimensionStrategy 'ovpnimpl', 'ovpn2'/" app/build.gradle
           echo "--- ics flavor dimensions ---"
           grep -n -i "flavorDimensions\|productFlavors\|ovpn" ics-openvpn/main/build.gradle* | head -20 || true
+          printf 'org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8\nandroid.useAndroidX=true\nandroid.suppressUnsupportedCompileSdk=35\n' > gradle.properties
+          sed -i "s/compileSdk 34/compileSdk 35/" app/build.gradle
           echo "gradle=${v:-8.4}" >> "$GITHUB_OUTPUT"
           echo "Using Gradle ${v:-8.4}"
 
